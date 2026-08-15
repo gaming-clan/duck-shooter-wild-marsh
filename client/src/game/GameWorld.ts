@@ -1,0 +1,230 @@
+// Field-Journal Arcade design: a single explicit round controller keeps the arcade loop crisp while the marsh remains calm.
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import type { Scene } from "@babylonjs/core/scene";
+import { AudioManager } from "@/game/AudioManager";
+import { DuckTarget } from "@/game/DuckTarget";
+import { Environment } from "@/game/Environment";
+import { HudLayer } from "@/game/HudLayer";
+import { ROUND_TARGETS, STARTING_SHOTS, STORAGE_KEY, TARGET_DATA, getQuota } from "@/game/constants";
+import type { GamePhase, GameStats, TargetVariant } from "@/game/types";
+
+export class GameWorld {
+  private readonly environment: Environment;
+  private readonly hud: HudLayer;
+  private readonly audio = new AudioManager();
+  private readonly targets: DuckTarget[] = [];
+  private phase: GamePhase = "title";
+  private previousPhase: GamePhase = "launching";
+  private currentTarget: DuckTarget | null = null;
+  private launchDelay = 0;
+  private demoTimer = 0;
+  private readonly demoEnabled = new URLSearchParams(window.location.search).has("demo");
+  private stats: GameStats;
+  private readonly onPointerMove: (event: PointerEvent) => void;
+  private readonly onPointerDown: (event: PointerEvent) => void;
+  private readonly onKeyDown: (event: KeyboardEvent) => void;
+
+  constructor(private readonly scene: Scene, private readonly canvas: HTMLCanvasElement) {
+    this.stats = this.makeStats(this.readHighScore());
+    this.environment = new Environment(scene);
+    const parent = canvas.parentElement;
+    if (!parent) throw new Error("Game canvas requires a parent element.");
+    this.hud = new HudLayer(parent, { onStart: () => this.startOrRestart(), onPause: () => this.togglePause(), onSound: () => this.toggleSound() });
+    this.onPointerMove = (event) => this.hud.setCursor(event.clientX, event.clientY);
+    this.onPointerDown = (event) => { event.preventDefault(); this.audio.unlock(); this.shoot(event.clientX, event.clientY); };
+    this.onKeyDown = (event) => this.handleKey(event);
+    canvas.addEventListener("pointermove", this.onPointerMove);
+    canvas.addEventListener("pointerdown", this.onPointerDown);
+    window.addEventListener("keydown", this.onKeyDown);
+    this.hud.setCursor(window.innerWidth / 2, window.innerHeight / 2);
+    this.updateHud();
+    this.showTitle();
+  }
+
+  update(delta: number) {
+    this.environment.update(delta);
+    if (this.demoEnabled && this.phase === "title") {
+      this.demoTimer += delta;
+      if (this.demoTimer > 0.8) this.startOrRestart(true);
+    }
+    if (this.phase !== "launching") return;
+    this.launchDelay -= delta;
+    if (!this.currentTarget && this.launchDelay <= 0 && this.stats.launched < ROUND_TARGETS) this.spawnTarget();
+    this.currentTarget?.update(delta);
+    if (this.currentTarget?.isResolved) this.resolveTarget(this.currentTarget);
+    if (this.demoEnabled && this.currentTarget?.status === "flying") {
+      this.demoTimer += delta;
+      if (this.demoTimer > 0.72) {
+        this.demoTimer = 0;
+        this.registerHit(this.currentTarget, window.innerWidth * 0.54, window.innerHeight * 0.43);
+      }
+    }
+  }
+
+  startOrRestart(demo = false) {
+    if (!demo) this.audio.unlock();
+    this.clearTargets();
+    this.stats = this.makeStats(Math.max(this.stats.highScore, this.stats.score));
+    this.phase = "launching";
+    this.launchDelay = 0.7;
+    this.demoTimer = 0;
+    this.hud.hideOverlay();
+    this.hud.setStatus("RANGE OPEN — FOLLOW THE FLIGHT LINE", "teal");
+    this.updateHud();
+  }
+
+  private makeStats(highScore: number): GameStats {
+    return { score: 0, highScore, round: 1, hits: 0, quota: getQuota(1), launched: 0, streak: 0, shots: STARTING_SHOTS, soundOn: true };
+  }
+
+  private spawnTarget() {
+    this.stats.launched += 1;
+    this.stats.shots = STARTING_SHOTS;
+    const variant = this.pickVariant(this.stats.launched);
+    this.currentTarget = new DuckTarget(this.scene, variant, this.stats.round, this.stats.launched);
+    this.targets.push(this.currentTarget);
+    this.hud.setStatus(`${TARGET_DATA[variant].label} — THREE CARTRIDGES`, "quiet");
+    this.updateHud();
+  }
+
+  private pickVariant(launch: number): TargetVariant {
+    const roll = (Math.sin((this.stats.round * 31 + launch * 17) * 2.73) + 1) / 2;
+    if (roll > 0.9) return "ivory";
+    if (roll > 0.58) return "rust";
+    return "kingfisher";
+  }
+
+  private shoot(clientX: number, clientY: number) {
+    if (this.phase === "title" || this.phase === "gameOver") { this.startOrRestart(); return; }
+    if (this.phase === "roundSummary") { this.nextRound(); return; }
+    if (this.phase !== "launching" || !this.currentTarget || this.stats.shots <= 0) return;
+    this.stats.shots -= 1;
+    this.audio.shot();
+    const rect = this.canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (this.canvas.width / rect.width);
+    const y = (clientY - rect.top) * (this.canvas.height / rect.height);
+    const pick = this.scene.pick(x, y, (mesh) => this.isTargetMesh(mesh));
+    const hitTarget = pick?.hit ? this.targets.find((target) => target.mesh === pick.pickedMesh) : undefined;
+    if (hitTarget && hitTarget.status === "flying") this.registerHit(hitTarget, clientX, clientY);
+    else {
+      this.stats.streak = 0;
+      this.audio.miss();
+      this.hud.flashCursor(false);
+      this.hud.setStatus(this.stats.shots === 0 ? "CARTRIDGES EMPTY — TARGET IS ESCAPING" : "WATERLINE DISTURBED — ADJUST YOUR LEAD", "warning");
+    }
+    this.updateHud();
+  }
+
+  private registerHit(target: DuckTarget, clientX: number, clientY: number) {
+    if (!target.hit()) return;
+    const data = TARGET_DATA[target.variant];
+    const combo = this.stats.streak * 25;
+    const points = data.points + combo;
+    this.stats.score += points;
+    this.stats.highScore = Math.max(this.stats.highScore, this.stats.score);
+    this.stats.hits += 1;
+    this.stats.streak += 1;
+    this.audio.hit();
+    this.hud.flashCursor(true);
+    this.hud.showScoreStamp(points, combo ? `${data.label} • STREAK` : data.label, clientX, clientY);
+    this.hud.setStatus(`${data.label} — +${points} FIELD SCORE`, "teal");
+    this.updateHud();
+  }
+
+  private resolveTarget(target: DuckTarget) {
+    const hit = target.wasHit;
+    const impactX = target.mesh.position.x;
+    const impactY = target.mesh.position.y;
+    if (hit) this.environment.pulseWater(impactX, impactY);
+    else { this.stats.streak = 0; this.hud.setStatus("TARGET LOST IN THE REEDS", "warning"); }
+    target.dispose();
+    this.targets.splice(this.targets.indexOf(target), 1);
+    this.currentTarget = null;
+    this.stats.highScore = Math.max(this.stats.highScore, this.stats.score);
+    this.persistHighScore();
+    this.updateHud();
+    if (this.stats.launched >= ROUND_TARGETS) this.finishRound();
+    else this.launchDelay = 0.7;
+  }
+
+  private finishRound() {
+    if (this.stats.hits >= this.stats.quota) {
+      const clean = this.stats.hits === ROUND_TARGETS;
+      const bonus = clean ? 700 : this.stats.hits * 45;
+      this.stats.score += bonus;
+      this.stats.highScore = Math.max(this.stats.highScore, this.stats.score);
+      this.persistHighScore();
+      this.phase = "roundSummary";
+      this.audio.clear();
+      this.hud.showOverlay({ phase: "roundSummary", title: clean ? "PERFECT<br /><i>FLIGHT</i>" : "RANGE<br /><i>CLEARED</i>", copy: clean ? `All ten targets recorded. A ${bonus}-point field bonus is entered in the ledger.` : `${this.stats.hits} confirmed sightings clear the quota. ${bonus} bonus points entered.`, button: "NEXT ROUND", action: () => this.nextRound(), detail: "ENTER / NEXT ROUND  •  P / PAUSE  •  M / SOUND" });
+      this.hud.setStatus(`ROUND ${this.stats.round} COMPLETE — +${bonus} FIELD BONUS`, "teal");
+      this.updateHud();
+      return;
+    }
+    this.phase = "gameOver";
+    this.hud.showOverlay({ phase: "gameOver", title: "RANGE<br /><i>COOLED</i>", copy: `${this.stats.hits} confirmed sightings fall short of the ${this.stats.quota} required. The marsh will be ready when you are.`, button: "REOPEN RANGE", action: () => this.startOrRestart(), detail: `FINAL FIELD SCORE ${String(this.stats.score).padStart(6, "0")}  •  ENTER / RESTART` });
+    this.hud.setStatus("ROUND REQUIREMENT MISSED — RANGE COOLED", "warning");
+  }
+
+  private nextRound() {
+    this.stats.round += 1;
+    this.stats.hits = 0;
+    this.stats.launched = 0;
+    this.stats.streak = 0;
+    this.stats.shots = STARTING_SHOTS;
+    this.stats.quota = getQuota(this.stats.round);
+    this.phase = "launching";
+    this.launchDelay = 0.85;
+    this.hud.hideOverlay();
+    this.hud.setStatus(`ROUND ${this.stats.round} — FLIGHTS MOVING FASTER`, "teal");
+    this.updateHud();
+  }
+
+  private togglePause() {
+    if (this.phase === "launching") {
+      this.previousPhase = this.phase;
+      this.phase = "paused";
+      this.hud.showOverlay({ phase: "paused", title: "FIELD NOTE<br /><i>PAUSED</i>", copy: "The water settles. Resume when your eye returns to the horizon.", button: "RESUME RANGE", action: () => this.togglePause(), detail: "P / RESUME  •  M / SOUND" });
+    } else if (this.phase === "paused") {
+      this.phase = this.previousPhase;
+      this.hud.hideOverlay();
+      this.hud.setStatus("RANGE RESUMED — TRACK THE FLIGHT LINE", "teal");
+    }
+  }
+
+  private toggleSound() { this.audio.unlock(); this.stats.soundOn = this.audio.toggle(); this.updateHud(); }
+
+  private handleKey(event: KeyboardEvent) {
+    if (["Space", "ArrowUp", "ArrowDown"].includes(event.code)) event.preventDefault();
+    if (event.key.toLowerCase() === "r" && this.phase === "launching" && this.currentTarget) {
+      this.stats.shots = STARTING_SHOTS;
+      this.hud.setStatus("CARTRIDGES RESEATED — KEEP THE LINE", "quiet");
+      this.updateHud();
+    }
+    if (event.key.toLowerCase() === "p") this.togglePause();
+    if (event.key.toLowerCase() === "m") this.toggleSound();
+    if (event.key === "Enter") {
+      if (this.phase === "title" || this.phase === "gameOver") this.startOrRestart();
+      else if (this.phase === "roundSummary") this.nextRound();
+    }
+  }
+
+  private isTargetMesh(mesh: AbstractMesh) { return mesh.name.startsWith("duck-"); }
+  private updateHud() { this.hud.update(this.stats); }
+  private showTitle() {
+    this.hud.showOverlay({ phase: "title", title: "DUCK SHOOTER<br /><i>WILD MARSH</i>", copy: "The reeds are moving. Track the flight line, make every cartridge count.", button: "OPEN THE RANGE", action: () => this.startOrRestart(), detail: "MOUSE / AIM + FIRE  •  R / RELOAD  •  P / PAUSE" });
+    this.hud.setStatus("RANGE CLOSED — OBSERVE THE WATERLINE", "quiet");
+  }
+  private readHighScore() { const value = Number(window.localStorage.getItem(STORAGE_KEY)); return Number.isFinite(value) ? value : 0; }
+  private persistHighScore() { window.localStorage.setItem(STORAGE_KEY, String(this.stats.highScore)); }
+  private clearTargets() { this.targets.forEach((target) => target.dispose()); this.targets.length = 0; this.currentTarget = null; }
+
+  dispose() {
+    this.canvas.removeEventListener("pointermove", this.onPointerMove);
+    this.canvas.removeEventListener("pointerdown", this.onPointerDown);
+    window.removeEventListener("keydown", this.onKeyDown);
+    this.clearTargets();
+    this.environment.dispose();
+    this.hud.dispose();
+  }
+}

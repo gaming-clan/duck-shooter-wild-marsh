@@ -12,10 +12,12 @@ export interface GameStats {
   streak: number;
   shots: number;
   soundOn: boolean;
+  aimAssistOn: boolean;
 }
 
 export interface HudActions {
   onStart: () => void;
   onPause: () => void;
   onSound: () => void;
+  onAssist: () => void;
 }

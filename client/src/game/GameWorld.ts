@@ -1,5 +1,6 @@
 // Field-Journal Arcade design: a single explicit round controller keeps the arcade loop crisp while the marsh remains calm.
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import "@babylonjs/core/Culling/ray";
 import type { Scene } from "@babylonjs/core/scene";
 import { AudioManager } from "@/game/AudioManager";
 import { DuckTarget } from "@/game/DuckTarget";
@@ -20,6 +21,7 @@ export class GameWorld {
   private demoTimer = 0;
   private readonly demoEnabled = new URLSearchParams(window.location.search).has("demo");
   private stats: GameStats;
+  private lastPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   private readonly onPointerMove: (event: PointerEvent) => void;
   private readonly onPointerDown: (event: PointerEvent) => void;
   private readonly onKeyDown: (event: KeyboardEvent) => void;
@@ -29,8 +31,8 @@ export class GameWorld {
     this.environment = new Environment(scene);
     const parent = canvas.parentElement;
     if (!parent) throw new Error("Game canvas requires a parent element.");
-    this.hud = new HudLayer(parent, { onStart: () => this.startOrRestart(), onPause: () => this.togglePause(), onSound: () => this.toggleSound() });
-    this.onPointerMove = (event) => this.hud.setCursor(event.clientX, event.clientY);
+    this.hud = new HudLayer(parent, { onStart: () => this.startOrRestart(), onPause: () => this.togglePause(), onSound: () => this.toggleSound(), onAssist: () => this.toggleAimAssist() });
+    this.onPointerMove = (event) => { this.lastPointer = { x: event.clientX, y: event.clientY }; this.hud.setCursor(event.clientX, event.clientY); this.refreshAimLock(); };
     this.onPointerDown = (event) => { event.preventDefault(); this.audio.unlock(); this.shoot(event.clientX, event.clientY); };
     this.onKeyDown = (event) => this.handleKey(event);
     canvas.addEventListener("pointermove", this.onPointerMove);
@@ -43,6 +45,7 @@ export class GameWorld {
 
   update(delta: number) {
     this.environment.update(delta);
+    this.refreshAimLock();
     if (this.demoEnabled && this.phase === "title") {
       this.demoTimer += delta;
       if (this.demoTimer > 0.8) this.startOrRestart(true);
@@ -74,7 +77,7 @@ export class GameWorld {
   }
 
   private makeStats(highScore: number): GameStats {
-    return { score: 0, highScore, round: 1, hits: 0, quota: getQuota(1), launched: 0, streak: 0, shots: STARTING_SHOTS, soundOn: true };
+    return { score: 0, highScore, round: 1, hits: 0, quota: getQuota(1), launched: 0, streak: 0, shots: STARTING_SHOTS, soundOn: true, aimAssistOn: true };
   }
 
   private spawnTarget() {
@@ -105,7 +108,9 @@ export class GameWorld {
     const y = (clientY - rect.top) * (this.canvas.height / rect.height);
     const pick = this.scene.pick(x, y, (mesh) => this.isTargetMesh(mesh));
     const hitTarget = pick?.hit ? this.targets.find((target) => target.mesh === pick.pickedMesh) : undefined;
-    if (hitTarget && hitTarget.status === "flying") this.registerHit(hitTarget, clientX, clientY);
+    const assistedTarget = !hitTarget ? this.getAimAssistTarget(clientX, clientY) : undefined;
+    const target = hitTarget?.status === "flying" ? hitTarget : assistedTarget;
+    if (target && target.status === "flying") this.registerHit(target, clientX, clientY, Boolean(assistedTarget));
     else {
       this.stats.streak = 0;
       this.audio.miss();
@@ -115,7 +120,7 @@ export class GameWorld {
     this.updateHud();
   }
 
-  private registerHit(target: DuckTarget, clientX: number, clientY: number) {
+  private registerHit(target: DuckTarget, clientX: number, clientY: number, assisted = false) {
     if (!target.hit()) return;
     const data = TARGET_DATA[target.variant];
     const combo = this.stats.streak * 25;
@@ -126,8 +131,8 @@ export class GameWorld {
     this.stats.streak += 1;
     this.audio.hit();
     this.hud.flashCursor(true);
-    this.hud.showScoreStamp(points, combo ? `${data.label} • STREAK` : data.label, clientX, clientY);
-    this.hud.setStatus(`${data.label} — +${points} FIELD SCORE`, "teal");
+    this.hud.showScoreStamp(points, assisted ? "TRACKING LOCK" : combo ? `${data.label} • STREAK` : data.label, clientX, clientY);
+    this.hud.setStatus(assisted ? `TRACKING LOCK — +${points} FIELD SCORE` : `${data.label} — +${points} FIELD SCORE`, "teal");
     this.updateHud();
   }
 
@@ -193,6 +198,12 @@ export class GameWorld {
   }
 
   private toggleSound() { this.audio.unlock(); this.stats.soundOn = this.audio.toggle(); this.updateHud(); }
+  private toggleAimAssist() {
+    this.stats.aimAssistOn = !this.stats.aimAssistOn;
+    this.hud.setStatus(this.stats.aimAssistOn ? "AIM ASSIST READY — TEAL RETICLE MEANS LOCK" : "AIM ASSIST OFF — DIRECT SHOTS ONLY", this.stats.aimAssistOn ? "teal" : "quiet");
+    this.refreshAimLock();
+    this.updateHud();
+  }
 
   private handleKey(event: KeyboardEvent) {
     if (["Space", "ArrowUp", "ArrowDown"].includes(event.code)) event.preventDefault();
@@ -203,6 +214,7 @@ export class GameWorld {
     }
     if (event.key.toLowerCase() === "p") this.togglePause();
     if (event.key.toLowerCase() === "m") this.toggleSound();
+    if (event.key.toLowerCase() === "a") this.toggleAimAssist();
     if (event.key === "Enter") {
       if (this.phase === "title" || this.phase === "gameOver") this.startOrRestart();
       else if (this.phase === "roundSummary") this.nextRound();
@@ -210,9 +222,28 @@ export class GameWorld {
   }
 
   private isTargetMesh(mesh: AbstractMesh) { return mesh.name.startsWith("duck-"); }
+  private refreshAimLock() { this.hud.setAimAssistLock(Boolean(this.getAimAssistTarget(this.lastPointer.x, this.lastPointer.y))); }
+  private getAimAssistTarget(clientX: number, clientY: number) {
+    const target = this.currentTarget;
+    const camera = this.scene.activeCamera;
+    if (!this.stats.aimAssistOn || this.phase !== "launching" || !target || target.status !== "flying" || !camera) return undefined;
+    const { orthoLeft, orthoRight, orthoTop, orthoBottom } = camera;
+    if ([orthoLeft, orthoRight, orthoTop, orthoBottom].some((value) => value === null)) return undefined;
+    const rect = this.canvas.getBoundingClientRect();
+    const worldWidth = (orthoRight as number) - (orthoLeft as number);
+    const worldHeight = (orthoTop as number) - (orthoBottom as number);
+    if (!worldWidth || !worldHeight) return undefined;
+    const centerX = rect.left + ((target.mesh.position.x - (orthoLeft as number)) / worldWidth) * rect.width;
+    const centerY = rect.top + (((orthoTop as number) - target.mesh.position.y) / worldHeight) * rect.height;
+    const data = TARGET_DATA[target.variant];
+    const radiusX = (data.width * target.mesh.scaling.x * rect.width / worldWidth) * 0.66 + 26;
+    const radiusY = (data.height * target.mesh.scaling.y * rect.height / worldHeight) * 0.78 + 22;
+    const distance = ((clientX - centerX) / radiusX) ** 2 + ((clientY - centerY) / radiusY) ** 2;
+    return distance <= 1 ? target : undefined;
+  }
   private updateHud() { this.hud.update(this.stats); }
   private showTitle() {
-    this.hud.showOverlay({ phase: "title", title: "DUCK SHOOTER<br /><i>WILD MARSH</i>", copy: "The reeds are moving. Track the flight line, make every cartridge count.", button: "OPEN THE RANGE", action: () => this.startOrRestart(), detail: "MOUSE / AIM + FIRE  •  R / RELOAD  •  P / PAUSE" });
+    this.hud.showOverlay({ phase: "title", title: "DUCK SHOOTER<br /><i>WILD MARSH</i>", copy: "The reeds are moving. Track the flight line; teal reticle means the range is helping you hold a target.", button: "OPEN THE RANGE", action: () => this.startOrRestart(), detail: "MOUSE / AIM + FIRE  •  A / ASSIST  •  R / RELOAD  •  P / PAUSE" });
     this.hud.setStatus("RANGE CLOSED — OBSERVE THE WATERLINE", "quiet");
   }
   private readHighScore() { const value = Number(window.localStorage.getItem(STORAGE_KEY)); return Number.isFinite(value) ? value : 0; }

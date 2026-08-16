@@ -16,6 +16,7 @@ export class HudLayer {
   private readonly actionButton: HTMLButtonElement;
   private readonly cursor: HTMLDivElement;
   private readonly soundButton: HTMLButtonElement;
+  private readonly assistButton: HTMLButtonElement;
   private action: (() => void) | null = null;
   private cleanups: Array<() => void> = [];
 
@@ -28,7 +29,7 @@ export class HudLayer {
       <section class="round-plate" aria-label="Round information"><span class="round-caption">CURRENT FLIGHT</span><strong class="round-number">ROUND 01</strong><span class="round-quota">0 / 5 CLEAR</span></section>
       <section class="cartridge-gauge" aria-label="Cartridges remaining"><span class="gauge-caption">CARTRIDGES</span><div class="shells"><i></i><i></i><i></i></div><span class="gauge-key">R / RELOAD</span></section>
       <p class="range-status">RANGE CLOSED — OBSERVE THE WATERLINE</p>
-      <div class="hud-controls"><button class="sound-toggle" aria-label="Toggle sound">SOUND ON</button><button class="pause-toggle" aria-label="Pause game">PAUSE</button></div>
+      <div class="hud-controls"><button class="assist-toggle" aria-label="Toggle aim assistance">ASSIST ON</button><button class="sound-toggle" aria-label="Toggle sound">SOUND ON</button><button class="pause-toggle" aria-label="Pause game">PAUSE</button></div>
       <div class="aim-reticle" aria-hidden="true"><span></span><b></b><em></em><i></i></div>
       <section class="field-sheet" aria-live="polite"><div class="sheet-topline"><span>MARSH RANGE NOTES</span><span>EST. 2026</span></div><img class="sheet-logo" src="${ASSETS.logo}" alt="" /><span class="sheet-eyebrow">ORIGINAL ARCADE GALLERY</span><h1>DUCK SHOOTER<br /><i>WILD MARSH</i></h1><p class="sheet-copy">The reeds are moving. Track the flight line, make every cartridge count.</p><button class="range-action">OPEN THE RANGE <span>↗</span></button><p class="sheet-keyline">MOUSE / AIM + FIRE &nbsp; • &nbsp; R / RELOAD &nbsp; • &nbsp; P / PAUSE</p></section>`;
     parent.appendChild(this.root);
@@ -45,10 +46,12 @@ export class HudLayer {
     this.actionButton = this.select<HTMLButtonElement>(".range-action", this.overlayEl);
     this.cursor = this.select(".aim-reticle");
     this.soundButton = this.select<HTMLButtonElement>(".sound-toggle");
+    this.assistButton = this.select<HTMLButtonElement>(".assist-toggle");
     const pauseButton = this.select<HTMLButtonElement>(".pause-toggle");
     this.listen(this.actionButton, "click", () => this.action?.());
     this.listen(pauseButton, "click", actions.onPause);
     this.listen(this.soundButton, "click", actions.onSound);
+    this.listen(this.assistButton, "click", actions.onAssist);
   }
 
   update(stats: GameStats) {
@@ -58,6 +61,8 @@ export class HudLayer {
     this.quotaEl.textContent = `${stats.hits} / ${stats.quota} CLEAR`;
     this.streakEl.textContent = stats.streak >= 2 ? `STREAK ×${stats.streak}` : "STEADY AIM";
     this.soundButton.textContent = stats.soundOn ? "SOUND ON" : "SOUND OFF";
+    this.assistButton.textContent = stats.aimAssistOn ? "ASSIST ON" : "ASSIST OFF";
+    this.assistButton.classList.toggle("is-active", stats.aimAssistOn);
     Array.from(this.shotsEl.querySelectorAll("i")).forEach((shell, index) => shell.classList.toggle("spent", index >= stats.shots));
   }
 
@@ -67,6 +72,7 @@ export class HudLayer {
   }
 
   setCursor(x: number, y: number) { this.cursor.style.transform = `translate(${x}px, ${y}px)`; }
+  setAimAssistLock(locked: boolean) { this.cursor.classList.toggle("is-locked", locked); }
 
   flashCursor(hit: boolean) {
     this.cursor.classList.remove("is-hit", "is-miss");
@@ -81,7 +87,7 @@ export class HudLayer {
     this.action = options.action;
     this.overlayEl.dataset.phase = options.phase;
     this.overlayEl.classList.add("is-visible");
-    this.select(".sheet-keyline", this.overlayEl).textContent = options.detail ?? "MOUSE / AIM + FIRE  •  R / RELOAD  •  P / PAUSE";
+    this.select(".sheet-keyline", this.overlayEl).textContent = options.detail ?? "MOUSE / AIM + FIRE  •  A / ASSIST  •  R / RELOAD  •  P / PAUSE";
   }
 
   hideOverlay() { this.overlayEl.classList.remove("is-visible"); }

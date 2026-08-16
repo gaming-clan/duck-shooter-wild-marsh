@@ -10,3 +10,4 @@
 - [x] Resolve the Windows port-3003 listener conflict and verify a clean local game startup.
 - [x] Replace hosted-only image delivery with a portable strategy that works in the Windows local game server.
 - [x] Add a visible Install / Download Game control with PWA prompt support and browser fallback guidance.
+- [ ] Repair the local installed PWA white-screen issue by registering the service worker in production builds and documenting production-preview installation.

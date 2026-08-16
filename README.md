@@ -15,15 +15,15 @@ The game takes broad inspiration from the arcade shooting-gallery format while u
 
 ## Local development
 
-Install dependencies with `pnpm install`, then run `pnpm dev`. Use `pnpm check` for TypeScript validation and `pnpm build` for a production build.
+Install dependencies with `pnpm install`, then run `pnpm dev` for development. Use `pnpm check` for TypeScript validation and `pnpm build` for a production build. For a locally installed PWA that can relaunch after the development server closes, run `pnpm build` and then `pnpm preview --host --port 3003`; install the app from that production preview, not from the HMR development server.
 
 For a deterministic visual demonstration of the gameplay loop, open the root URL with `?demo` appended. The normal root route opens the interactive field-note title screen.
 
 ## Run and install on Windows
 
-The project checkout lives at `C:\Manus\duck-shooter-wild-marsh`. Open **PowerShell** in that folder and run `npm install -g pnpm` once if `pnpm` is not already installed. Then run `pnpm install` followed by `pnpm dev`; open `http://localhost:3003` in your browser.
+The project checkout lives at `C:\Manus\duck-shooter-wild-marsh`. Open **PowerShell** in that folder and run `npm install -g pnpm` once if `pnpm` is not already installed. Then run `pnpm install`, `pnpm build`, and `pnpm preview --host --port 3003`; open `http://localhost:3003` in your browser. Keep `pnpm dev` for development only.
 
-Wild Marsh is an installable PWA. For the published version, open the game in Chrome or Microsoft Edge and choose the browser's **Install app** button in the address bar, or use the browser menu and select **Install Duck Shooter: Wild Marsh**. Once installed, it opens in its own game window and caches the app shell and previously loaded assets for offline relaunches.
+Wild Marsh is an installable PWA. For the published version or the production preview, open the game in Chrome or Microsoft Edge and choose the browser's **Install app** button in the address bar, or use the browser menu and select **Install Duck Shooter: Wild Marsh**. The production build registers the service worker and caches the app shell plus previously loaded assets for offline relaunches. If an older white-screen installation already exists, uninstall it, rebuild, start the production preview, and install it again.
 
 ## Design direction
 

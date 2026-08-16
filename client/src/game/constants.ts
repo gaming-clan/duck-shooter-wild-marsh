@@ -1,12 +1,12 @@
 import type { TargetVariant } from "@/game/types";
 
 export const ASSETS = {
-  background: "/manus-storage/wild-marsh-background-v2_21a319b9.png",
-  logo: "/manus-storage/wild-marsh-logo-v2_45b295f2.png",
+  background: "/wild-marsh-assets/background.png",
+  logo: "/wild-marsh-assets/logo.png",
   ducks: {
-    kingfisher: "/manus-storage/duck-kingfisher-flight-v2_1f2ba0f0.png",
-    rust: "/manus-storage/duck-rust-flight-v2_c2626146.png",
-    ivory: "/manus-storage/duck-ivory-flight-v2_86d4eeaf.png",
+    kingfisher: "/wild-marsh-assets/duck-kingfisher.png",
+    rust: "/wild-marsh-assets/duck-rust.png",
+    ivory: "/wild-marsh-assets/duck-ivory.png",
   },
 } as const;
 

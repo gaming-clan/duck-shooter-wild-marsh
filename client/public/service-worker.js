@@ -3,11 +3,11 @@ const CACHE_NAME = "wild-marsh-range-v1";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
-  "/manus-storage/wild-marsh-logo-v2_45b295f2.png",
-  "/manus-storage/wild-marsh-background-v2_21a319b9.png",
-  "/manus-storage/duck-kingfisher-flight-v2_1f2ba0f0.png",
-  "/manus-storage/duck-rust-flight-v2_c2626146.png",
-  "/manus-storage/duck-ivory-flight-v2_86d4eeaf.png"
+  "/wild-marsh-assets/logo.png",
+  "/wild-marsh-assets/background.png",
+  "/wild-marsh-assets/duck-kingfisher.png",
+  "/wild-marsh-assets/duck-rust.png",
+  "/wild-marsh-assets/duck-ivory.png"
 ];
 
 self.addEventListener("install", (event) => {

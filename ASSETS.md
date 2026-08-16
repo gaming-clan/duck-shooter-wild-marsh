@@ -6,15 +6,15 @@ Field-Journal Arcade: a premium illustrated-naturalism wetland at golden hour. T
 
 ## Generated Assets
 
-The first generation set failed and is retired. The following replacement URLs are the active assets; the game runtime points only to these entries.
+The first generation set failed and is retired. The active art is bundled under `client/public/wild-marsh-assets/` so local Windows development, the installed PWA, and hosted deployments all load the same portable files without storage-proxy credentials.
 
 | Asset | Purpose | In-game size | Web URL | Notes |
 | --- | --- | --- | --- | --- |
-| Marsh background | Full-screen sky, lake, distant-bank background | 2560 × 1440 px, full viewport cover | `/manus-storage/wild-marsh-background-v2_21a319b9.png` | Use as a large background texture beneath procedural depth and foreground elements. |
-| Kingfisher flight duck | Common fast target | 190 × 128 px at 1280 px viewport width | `/manus-storage/duck-kingfisher-flight-v2_1f2ba0f0.png` | Transparent 3:2 duck art facing right. |
-| Rust flight duck | Common banking target | 176 × 118 px at 1280 px viewport width | `/manus-storage/duck-rust-flight-v2_c2626146.png` | Transparent 3:2 duck art facing left. |
-| Ivory flight duck | High-value rare target | 202 × 136 px at 1280 px viewport width | `/manus-storage/duck-ivory-flight-v2_86d4eeaf.png` | Transparent 3:2 duck art facing right. |
-| Wild Marsh logo mark | App header / favicon mark | 96 × 96 px in start panel; 32 × 32 px favicon | `/manus-storage/wild-marsh-logo-v2_45b295f2.png` | Text-free flying wing, brass sight ring, and reeds. |
+| Marsh background | Full-screen sky, lake, distant-bank background | 2560 × 1440 px, full viewport cover | `/wild-marsh-assets/background.png` | Bundled for reliable local and offline play. |
+| Kingfisher flight duck | Common fast target | 190 × 128 px at 1280 px viewport width | `/wild-marsh-assets/duck-kingfisher.png` | Bundled transparent 3:2 duck art facing right. |
+| Rust flight duck | Common banking target | 176 × 118 px at 1280 px viewport width | `/wild-marsh-assets/duck-rust.png` | Bundled transparent 3:2 duck art facing left. |
+| Ivory flight duck | High-value rare target | 202 × 136 px at 1280 px viewport width | `/wild-marsh-assets/duck-ivory.png` | Bundled transparent 3:2 duck art facing right. |
+| Wild Marsh logo mark | App header / favicon mark | 96 × 96 px in start panel; 32 × 32 px favicon | `/wild-marsh-assets/logo.png` | Bundled text-free flying wing, brass sight ring, and reeds. |
 
 ## Asset Integration Notes
 

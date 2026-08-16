@@ -6,3 +6,4 @@
 - [x] Add a visible, toggleable aim-assistance system with near-miss forgiveness for moving duck targets.
 - [x] Add manifest, service worker, offline caching, and install metadata for a desktop-friendly PWA.
 - [x] Document and verify the Windows local-run and browser-install workflow.
+- [ ] Configure the local development server and Windows run guide for port 3003.

@@ -20,4 +20,5 @@ export interface HudActions {
   onPause: () => void;
   onSound: () => void;
   onAssist: () => void;
+  onInstall: () => void;
 }

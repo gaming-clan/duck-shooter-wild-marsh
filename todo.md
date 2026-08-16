@@ -9,3 +9,4 @@
 - [x] Configure the local development server and Windows run guide for port 3003.
 - [x] Resolve the Windows port-3003 listener conflict and verify a clean local game startup.
 - [x] Replace hosted-only image delivery with a portable strategy that works in the Windows local game server.
+- [x] Add a visible Install / Download Game control with PWA prompt support and browser fallback guidance.

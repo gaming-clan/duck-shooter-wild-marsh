@@ -9,6 +9,11 @@ import { HudLayer } from "@/game/HudLayer";
 import { ROUND_TARGETS, STARTING_SHOTS, STORAGE_KEY, TARGET_DATA, getQuota } from "@/game/constants";
 import type { GamePhase, GameStats, TargetVariant } from "@/game/types";
 
+interface DeferredInstallPrompt extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
 export class GameWorld {
   private readonly environment: Environment;
   private readonly hud: HudLayer;
@@ -22,6 +27,7 @@ export class GameWorld {
   private readonly demoEnabled = new URLSearchParams(window.location.search).has("demo");
   private stats: GameStats;
   private lastPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  private deferredInstallPrompt: DeferredInstallPrompt | null = null;
   private readonly onPointerMove: (event: PointerEvent) => void;
   private readonly onPointerDown: (event: PointerEvent) => void;
   private readonly onKeyDown: (event: KeyboardEvent) => void;
@@ -31,14 +37,17 @@ export class GameWorld {
     this.environment = new Environment(scene);
     const parent = canvas.parentElement;
     if (!parent) throw new Error("Game canvas requires a parent element.");
-    this.hud = new HudLayer(parent, { onStart: () => this.startOrRestart(), onPause: () => this.togglePause(), onSound: () => this.toggleSound(), onAssist: () => this.toggleAimAssist() });
+    this.hud = new HudLayer(parent, { onStart: () => this.startOrRestart(), onPause: () => this.togglePause(), onSound: () => this.toggleSound(), onAssist: () => this.toggleAimAssist(), onInstall: () => this.installGame() });
     this.onPointerMove = (event) => { this.lastPointer = { x: event.clientX, y: event.clientY }; this.hud.setCursor(event.clientX, event.clientY); this.refreshAimLock(); };
     this.onPointerDown = (event) => { event.preventDefault(); this.audio.unlock(); this.shoot(event.clientX, event.clientY); };
     this.onKeyDown = (event) => this.handleKey(event);
     canvas.addEventListener("pointermove", this.onPointerMove);
     canvas.addEventListener("pointerdown", this.onPointerDown);
     window.addEventListener("keydown", this.onKeyDown);
+    window.addEventListener("beforeinstallprompt", this.onBeforeInstallPrompt as EventListener);
+    window.addEventListener("appinstalled", this.onAppInstalled);
     this.hud.setCursor(window.innerWidth / 2, window.innerHeight / 2);
+    this.hud.setInstallState(window.matchMedia("(display-mode: standalone)").matches ? "installed" : "ready");
     this.updateHud();
     this.showTitle();
   }
@@ -198,6 +207,31 @@ export class GameWorld {
   }
 
   private toggleSound() { this.audio.unlock(); this.stats.soundOn = this.audio.toggle(); this.updateHud(); }
+  private readonly onBeforeInstallPrompt = (event: Event) => {
+    event.preventDefault();
+    this.deferredInstallPrompt = event as DeferredInstallPrompt;
+    this.hud.setInstallState("ready");
+  };
+  private readonly onAppInstalled = () => {
+    this.deferredInstallPrompt = null;
+    this.hud.setInstallState("installed");
+    this.hud.setStatus("WILD MARSH INSTALLED — FIND IT IN YOUR APP LIST", "teal");
+  };
+  private async installGame() {
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      this.hud.setInstallState("installed");
+      this.hud.setStatus("WILD MARSH IS ALREADY INSTALLED", "teal");
+      return;
+    }
+    if (!this.deferredInstallPrompt) {
+      this.hud.setStatus("USE YOUR BROWSER MENU: INSTALL DUCK SHOOTER: WILD MARSH", "quiet");
+      return;
+    }
+    await this.deferredInstallPrompt.prompt();
+    const choice = await this.deferredInstallPrompt.userChoice;
+    this.deferredInstallPrompt = null;
+    this.hud.setStatus(choice.outcome === "accepted" ? "INSTALL REQUEST ACCEPTED — FINISH IN YOUR BROWSER" : "INSTALL CANCELED — THE RANGE REMAINS OPEN", choice.outcome === "accepted" ? "teal" : "quiet");
+  }
   private toggleAimAssist() {
     this.stats.aimAssistOn = !this.stats.aimAssistOn;
     this.hud.setStatus(this.stats.aimAssistOn ? "AIM ASSIST READY — TEAL RETICLE MEANS LOCK" : "AIM ASSIST OFF — DIRECT SHOTS ONLY", this.stats.aimAssistOn ? "teal" : "quiet");
@@ -254,6 +288,8 @@ export class GameWorld {
     this.canvas.removeEventListener("pointermove", this.onPointerMove);
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
     window.removeEventListener("keydown", this.onKeyDown);
+    window.removeEventListener("beforeinstallprompt", this.onBeforeInstallPrompt as EventListener);
+    window.removeEventListener("appinstalled", this.onAppInstalled);
     this.clearTargets();
     this.environment.dispose();
     this.hud.dispose();

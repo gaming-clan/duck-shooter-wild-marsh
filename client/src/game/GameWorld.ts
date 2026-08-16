@@ -31,21 +31,24 @@ export class GameWorld {
   private readonly onPointerMove: (event: PointerEvent) => void;
   private readonly onPointerDown: (event: PointerEvent) => void;
   private readonly onKeyDown: (event: KeyboardEvent) => void;
+  private readonly onFullscreenChange: () => void;
 
   constructor(private readonly scene: Scene, private readonly canvas: HTMLCanvasElement) {
     this.stats = this.makeStats(this.readHighScore());
     this.environment = new Environment(scene);
     const parent = canvas.parentElement;
     if (!parent) throw new Error("Game canvas requires a parent element.");
-    this.hud = new HudLayer(parent, { onStart: () => this.startOrRestart(), onPause: () => this.togglePause(), onSound: () => this.toggleSound(), onAssist: () => this.toggleAimAssist(), onInstall: () => this.installGame() });
+    this.hud = new HudLayer(parent, { onStart: () => this.startOrRestart(), onPause: () => this.togglePause(), onSound: () => this.toggleSound(), onAssist: () => this.toggleAimAssist(), onInstall: () => this.installGame(), onFullscreen: () => this.toggleFullscreen() });
     this.onPointerMove = (event) => { this.lastPointer = { x: event.clientX, y: event.clientY }; this.hud.setCursor(event.clientX, event.clientY); this.refreshAimLock(); };
     this.onPointerDown = (event) => { event.preventDefault(); this.audio.unlock(); this.shoot(event.clientX, event.clientY); };
     this.onKeyDown = (event) => this.handleKey(event);
+    this.onFullscreenChange = () => this.hud.setFullscreenState(Boolean(document.fullscreenElement));
     canvas.addEventListener("pointermove", this.onPointerMove);
     canvas.addEventListener("pointerdown", this.onPointerDown);
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("beforeinstallprompt", this.onBeforeInstallPrompt as EventListener);
     window.addEventListener("appinstalled", this.onAppInstalled);
+    document.addEventListener("fullscreenchange", this.onFullscreenChange);
     this.hud.setCursor(window.innerWidth / 2, window.innerHeight / 2);
     this.hud.setInstallState(window.matchMedia("(display-mode: standalone)").matches ? "installed" : "ready");
     this.updateHud();
@@ -95,6 +98,7 @@ export class GameWorld {
     const variant = this.pickVariant(this.stats.launched);
     this.currentTarget = new DuckTarget(this.scene, variant, this.stats.round, this.stats.launched);
     this.targets.push(this.currentTarget);
+    this.audio.quack(variant);
     this.hud.setStatus(`${TARGET_DATA[variant].label} — THREE CARTRIDGES`, "quiet");
     this.updateHud();
   }
@@ -207,6 +211,14 @@ export class GameWorld {
   }
 
   private toggleSound() { this.audio.unlock(); this.stats.soundOn = this.audio.toggle(); this.updateHud(); }
+  private async toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await this.canvas.parentElement?.requestFullscreen();
+    } catch {
+      this.hud.setStatus("FULL SCREEN IS BLOCKED — USE YOUR BROWSER MENU", "warning");
+    }
+  }
   private readonly onBeforeInstallPrompt = (event: Event) => {
     event.preventDefault();
     this.deferredInstallPrompt = event as DeferredInstallPrompt;
@@ -290,6 +302,7 @@ export class GameWorld {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("beforeinstallprompt", this.onBeforeInstallPrompt as EventListener);
     window.removeEventListener("appinstalled", this.onAppInstalled);
+    document.removeEventListener("fullscreenchange", this.onFullscreenChange);
     this.clearTargets();
     this.environment.dispose();
     this.hud.dispose();

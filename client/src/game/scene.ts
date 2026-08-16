@@ -6,6 +6,8 @@ import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera";
 import { Camera } from "@babylonjs/core/Cameras/camera";
 import { Scene } from "@babylonjs/core/scene";
 import { GameWorld } from "@/game/GameWorld";
+import "@babylonjs/core/Shaders/default.vertex";
+import "@babylonjs/core/Shaders/default.fragment";
 
 export interface GameHandle { scene: Scene; dispose: () => void; }
 

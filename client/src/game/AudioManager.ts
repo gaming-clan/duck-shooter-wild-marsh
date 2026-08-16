@@ -17,6 +17,12 @@ export class AudioManager {
     this.tone(52, 0.11, "triangle", 0.08, 34);
   }
 
+  quack(variant: "kingfisher" | "rust" | "ivory" = "kingfisher") {
+    const base = variant === "ivory" ? 360 : variant === "rust" ? 300 : 250;
+    this.tone(base, 0.16, "sawtooth", 0.045, base * 0.58);
+    window.setTimeout(() => this.tone(base * 0.72, 0.13, "square", 0.028, base * 0.42), 85);
+  }
+
   hit() {
     this.tone(660, 0.09, "sine", 0.075, 900);
     this.tone(990, 0.14, "sine", 0.055, 1240);

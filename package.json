@@ -10,6 +10,7 @@
     "preview": "vite preview --host",
     "pwa": "pnpm build && pnpm preview --host --port 3003",
     "check": "tsc --noEmit",
+    "test": "vitest run",
     "format": "prettier --write ."
   },
   "dependencies": {

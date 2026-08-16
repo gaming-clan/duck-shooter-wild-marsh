@@ -21,4 +21,5 @@ export interface HudActions {
   onSound: () => void;
   onAssist: () => void;
   onInstall: () => void;
+  onFullscreen: () => void;
 }

@@ -10,4 +10,8 @@
 - [x] Resolve the Windows port-3003 listener conflict and verify a clean local game startup.
 - [x] Replace hosted-only image delivery with a portable strategy that works in the Windows local game server.
 - [x] Add a visible Install / Download Game control with PWA prompt support and browser fallback guidance.
-- [ ] Repair the local installed PWA white-screen issue by registering the service worker in production builds and documenting production-preview installation.
+- [x] Repair the local installed PWA white-screen issue by registering the service worker in production builds and documenting production-preview installation.
+- [x] Restore disappeared duck targets in the local PWA and production ZIP by registering Babylon default shaders explicitly.
+- [x] Add Full Screen mode to the game UI with a browser Fullscreen API toggle and state-aware button.
+- [x] Add original synthesized duck quack audio feedback for both local PWA and ZIP builds.
+- [ ] Re-run `pnpm pwa` in the Windows checkout and confirm the installed PWA opens with the latest build.

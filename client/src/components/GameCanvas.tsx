@@ -12,7 +12,7 @@ export default function GameCanvas() {
     if (!canvas || startedRef.current) return;
     startedRef.current = true;
 
-    const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, adaptToDeviceRatio: true });
+    const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, adaptToDeviceRatio: true, disableWebGL2Support: true });
     let handle: GameHandle | null = null;
     let disposed = false;
 

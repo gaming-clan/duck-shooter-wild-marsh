@@ -1,5 +1,5 @@
 /* Wild Marsh PWA: cache the playable app shell and previously loaded assets for offline relaunches. */
-const CACHE_NAME = "wild-marsh-range-v1";
+const CACHE_NAME = "wild-marsh-range-v2";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -25,6 +25,11 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) return;
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/src/") || url.pathname.startsWith("/@") || url.pathname.startsWith("/node_modules/")) {
+    event.respondWith(fetch(request));
+    return;
+  }
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
@@ -37,13 +42,24 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+  if (url.pathname.startsWith("/wild-marsh-assets/") || url.pathname === "/manifest.webmanifest") {
+    event.respondWith(
+      caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+        if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+        return response;
+      }))
+    );
+    return;
+  }
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      if (response.ok) {
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-      }
-      return response;
-    }))
+        }
+        return response;
+      })
+      .catch(() => caches.match(request))
   );
 });

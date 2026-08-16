@@ -8,4 +8,4 @@
 - [x] Document and verify the Windows local-run and browser-install workflow.
 - [x] Configure the local development server and Windows run guide for port 3003.
 - [x] Resolve the Windows port-3003 listener conflict and verify a clean local game startup.
-- [ ] Replace hosted-only image delivery with a portable strategy that works in the Windows local game server.
+- [x] Replace hosted-only image delivery with a portable strategy that works in the Windows local game server.

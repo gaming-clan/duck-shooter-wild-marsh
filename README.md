@@ -19,6 +19,12 @@ Install dependencies with `pnpm install`, then run `pnpm dev`. Use `pnpm check` 
 
 For a deterministic visual demonstration of the gameplay loop, open the root URL with `?demo` appended. The normal root route opens the interactive field-note title screen.
 
+## Run and install on Windows
+
+The project checkout lives at `C:\Manus\duck-shooter-wild-marsh`. Open **PowerShell** in that folder and run `npm install -g pnpm` once if `pnpm` is not already installed. Then run `pnpm install` followed by `pnpm dev`; open the `http://localhost:3000` address shown in the terminal.
+
+Wild Marsh is an installable PWA. For the published version, open the game in Chrome or Microsoft Edge and choose the browser's **Install app** button in the address bar, or use the browser menu and select **Install Duck Shooter: Wild Marsh**. Once installed, it opens in its own game window and caches the app shell and previously loaded assets for offline relaunches.
+
 ## Design direction
 
 The game uses the **Field-Journal Arcade** visual system: illustrated wetland scenery, parchment score ledgers, brass measurement marks, a Kingfisher Teal action signal, and the pairing of DM Serif Display with Barlow Condensed. The full visual direction and asset manifest are kept in [`ideas.md`](ideas.md) and [`ASSETS.md`](ASSETS.md).

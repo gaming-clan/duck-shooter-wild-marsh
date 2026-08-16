@@ -8,8 +8,12 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>Duck Shooter: Wild Marsh</title>
     <meta name="theme-color" content="#0d2f2d" />
+    <meta name="application-name" content="Duck Shooter: Wild Marsh" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="An original, PC-first Wild Marsh arcade shooting gallery." />
     <link rel="icon" href="/manus-storage/wild-marsh-logo-v2_45b295f2.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
   </head>
 
   <body>
@@ -19,6 +23,11 @@
       defer
       src="%VITE_ANALYTICS_ENDPOINT%/umami"
       data-website-id="%VITE_ANALYTICS_WEBSITE_ID%"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => navigator.serviceWorker.register("/service-worker.js"));
+      }
+    </script>
   </body>
 
 </html>
